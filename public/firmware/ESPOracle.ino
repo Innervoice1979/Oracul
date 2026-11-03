@@ -89,6 +89,16 @@ const char* DEVICE_NAME       = "InnerVoice";
 #define AUTO_SAMPLE_MS 50  // частота опроса акселерометра в AUTO
 
 // ============================================================================
+// СТРУКТУРЫ ДАННЫХ
+// ============================================================================
+
+struct AccelData {
+  int16_t x;
+  int16_t y;
+  int16_t z;
+};
+
+// ============================================================================
 // ГЛОБАЛЬНЫЕ ОБЪЕКТЫ
 // ============================================================================
 
@@ -473,12 +483,6 @@ int16_t readMPU16(uint8_t reg) {
   return (int16_t)raw;
 }
 
-struct AccelData {
-  int16_t x;
-  int16_t y;
-  int16_t z;
-};
-
 AccelData readAccelBurst() {
   AccelData d{0, 0, 0};
   Wire.beginTransmission(MPU_ADDR);
@@ -639,7 +643,7 @@ void drawQuote(const String& text) {
   u8g2.setFont(FONT_RU);
 
   int16_t maxW = SCREEN_WIDTH - 40;
-  int lineH = u8g2.getAscent() - u8g2.getDescent() + 4;
+  int lineH = u8g2.getFontAscent() - u8g2.getFontDescent() + 4;
 
   // Перенос текста
   String lines[10];
@@ -1102,7 +1106,7 @@ void startWiFi() {
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
   }
-  WiFi.setSleep(WIFI_MODEM_SLEEP);
+  WiFi.setSleep(true);  // Modem sleep enabled (ESP32 Arduino Core 3.x)
   if (WiFi.status() != WL_CONNECTED) {
     WiFi.begin(WIFI_SSID, WIFI_PASS);
     lastWifiAttempt = millis();
@@ -1312,7 +1316,8 @@ void goToDeepSleep() {
   if (mpuReady) readMPU(0x3A);
 
   pinMode(MPU_INT_PIN, INPUT_PULLDOWN);
-  esp_deep_sleep_enable_ext0_wakeup((gpio_num_t)MPU_INT_PIN, 1);
+  // ESP32-C3 использует GPIO wakeup вместо ext0 (только для RISC-V)
+  esp_deep_sleep_enable_gpio_wakeup(1 << MPU_INT_PIN, ESP_GPIO_WAKEUP_GPIO_HIGH);
 
 #if ENABLE_SERIAL
   Serial.println("Going to deep sleep...");
@@ -1753,8 +1758,8 @@ void setup() {
   tft.setRotation(1);
   tft.invertDisplay(TFT_INVERT);
 
-  u8g2.begin(&tft);
-  u8g2.setFontRefHeightExtendedText();
+  u8g2.begin(tft);  // Передаём по ссылке, не по указателю
+  // setFontRefHeightExtendedText() удалён — устарел в новых версиях библиотеки
   initFonts();
 
   C_BG   = tft.color565(0, 0, 0);
