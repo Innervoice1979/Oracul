@@ -26,23 +26,26 @@
 #define ENABLE_SERIAL 1
 #define ENABLE_JARVIS_HTTP 0
 
-// --- TFT ST7789 ---
-#define TFT_SCLK 5
-#define TFT_MOSI 6
-#define TFT_CS   10
-#define TFT_DC   7
-#define TFT_RST  3
-#define TFT_BL   21
+// --- TFT ST7789 (SPI) ---
+// Модуль: GND VCC SCL SDA RST DC CS BL
+#define TFT_SCLK 5    // SCL на модуле (SPI Clock, НЕ I2C!)
+#define TFT_MOSI 6    // SDA на модуле (SPI Data, НЕ I2C!)
+#define TFT_CS   10   // CS
+#define TFT_DC   7    // DC (Data/Command)
+#define TFT_RST  3    // RST (Reset)
+#define TFT_BL   21   // BL (Backlight)
 #define TFT_INVERT true
 
 #define SCREEN_WIDTH  240
 #define SCREEN_HEIGHT 240
 
-// --- MPU6050 ---
-#define MPU_SDA_PIN 1
-#define MPU_SCL_PIN 0
-#define MPU_INT_PIN 4
-#define MPU_ADDR    0x68
+// --- MPU6050 (I2C) ---
+// Модуль: SCL SDA XDA XCL ADO INT
+#define MPU_SDA_PIN 1    // SDA (I2C Data)
+#define MPU_SCL_PIN 0    // SCL (I2C Clock)
+#define MPU_INT_PIN 4    // INT (Interrupt)
+#define MPU_ADDR    0x68 // ADO подключён к GND
+// XDA, XCL — не используются (auxiliary pins)
 
 // --- Кнопка ---
 #define BTN_PIN         20

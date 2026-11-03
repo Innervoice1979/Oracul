@@ -4,32 +4,33 @@ export default function Pinout() {
       title: 'TFT ST7789 (SPI)',
       color: 'cyan',
       pins: [
-        { gpio: 'GPIO5', signal: 'SCLK', desc: 'SPI Clock' },
-        { gpio: 'GPIO6', signal: 'MOSI', desc: 'SPI Data' },
-        { gpio: 'GPIO10', signal: 'CS', desc: 'Chip Select' },
-        { gpio: 'GPIO7', signal: 'DC', desc: 'Data/Command' },
-        { gpio: 'GPIO3', signal: 'RST', desc: 'Reset' },
-        { gpio: 'GPIO21', signal: 'BL', desc: 'Backlight PWM' },
+        { gpio: 'GPIO5', signal: 'SCLK', desc: 'SCL на модуле (SPI Clock)' },
+        { gpio: 'GPIO6', signal: 'MOSI', desc: 'SDA на модуле (SPI Data)' },
+        { gpio: 'GPIO10', signal: 'CS', desc: 'CS' },
+        { gpio: 'GPIO7', signal: 'DC', desc: 'DC (Data/Command)' },
+        { gpio: 'GPIO3', signal: 'RST', desc: 'RST (Reset)' },
+        { gpio: 'GPIO21', signal: 'BL', desc: 'BL (Backlight PWM)' },
       ]
     },
     {
       title: 'MPU6050 (I2C)',
       color: 'purple',
       pins: [
-        { gpio: 'GPIO1', signal: 'SDA', desc: 'I2C Data' },
-        { gpio: 'GPIO0', signal: 'SCL', desc: 'I2C Clock' },
-        { gpio: 'GPIO4', signal: 'INT', desc: 'Interrupt (Wake)' },
-        { gpio: '3.3V', signal: 'VCC', desc: 'Power' },
-        { gpio: 'GND', signal: 'GND', desc: 'Ground' },
+        { gpio: 'GPIO0', signal: 'SCL', desc: 'SCL (I2C Clock)' },
+        { gpio: 'GPIO1', signal: 'SDA', desc: 'SDA (I2C Data)' },
+        { gpio: 'GPIO4', signal: 'INT', desc: 'INT (Interrupt)' },
+        { gpio: 'GND', signal: 'ADO', desc: 'ADO → GND (адрес 0x68)' },
+        { gpio: '—', signal: 'XDA', desc: 'Не подключать' },
+        { gpio: '—', signal: 'XCL', desc: 'Не подключать' },
       ]
     },
     {
-      title: 'Кнопка',
+      title: 'Кнопка TTP223',
       color: 'green',
       pins: [
-        { gpio: 'GPIO20', signal: 'SIG', desc: 'Signal (Active HIGH)' },
-        { gpio: '3.3V', signal: 'VCC', desc: 'Power' },
-        { gpio: 'GND', signal: 'GND', desc: 'Ground' },
+        { gpio: 'GPIO20', signal: 'SIG', desc: 'SIG (Active HIGH)' },
+        { gpio: '3.3V', signal: 'VCC', desc: 'VCC' },
+        { gpio: 'GND', signal: 'GND', desc: 'GND' },
       ]
     },
     {
@@ -101,11 +102,25 @@ export default function Pinout() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
           <div>
-            <p className="text-amber-400 font-semibold text-sm">Важно</p>
+            <p className="text-amber-400 font-semibold text-sm">⚠️ SCL/SDA — это разные интерфейсы!</p>
             <p className="text-amber-200/70 text-sm mt-1">
-              GPIO2, GPIO8, GPIO9 на ESP32-C3 могут быть strapping-пинами. 
-              Убедитесь, что ваша плата не использует их для загрузки. 
-              Для I2C желательны подтягивающие резисторы 4.7kΩ–10kΩ к 3.3V.
+              <b>TFT дисплей:</b> SCL/SDA = SPI (Serial Peripheral Interface) — синхронная передача данных<br/>
+              <b>MPU6050:</b> SCL/SDA = I2C (Inter-Integrated Circuit) — другая шина<br/>
+              <b>НЕ ПЕРЕПУТАЙТЕ!</b> Эти пины несовместимы. TFT SCL → GPIO5, MPU SCL → GPIO0
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3">
+          <svg className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-blue-400 font-semibold text-sm">MPU6050: XDA/XCL не используются</p>
+            <p className="text-blue-200/70 text-sm mt-1">
+              Пины XDA и XCL — auxiliary (вспомогательные), для подключения внешних сенсоров. 
+              В нашем проекте они не нужны — оставьте их неподключёнными.<br/>
+              <b>ADO</b> определяет I2C адрес: подключите к GND (адрес 0x68) или к VCC (адрес 0x69).
             </p>
           </div>
         </div>

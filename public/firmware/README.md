@@ -25,19 +25,46 @@
 
 ## Подключение
 
-| Компонент | Сигнал | GPIO |
-|-----------|--------|------|
-| TFT SCLK  | SPI    | 5    |
-| TFT MOSI  | SPI    | 6    |
-| TFT CS    | SPI    | 10   |
-| TFT DC    | SPI    | 7    |
-| TFT RST   | SPI    | 3    |
-| TFT BL    | PWM    | 21   |
-| MPU SDA   | I2C    | 1    |
-| MPU SCL   | I2C    | 0    |
-| MPU INT   | Wake   | 4    |
-| Кнопка    | Signal | 20   |
-| Вибро     | NPN    | 2    |
+### TFT дисплей ST7789 (SPI)
+Модуль имеет пины: GND VCC SCL SDA RST DC CS BL
+
+| Пин модуля | Пин ESP32 | Назначение |
+|------------|-----------|------------|
+| GND        | GND       | Земля |
+| VCC        | 3.3V      | Питание |
+| SCL        | GPIO5     | SPI Clock (НЕ I2C!) |
+| SDA        | GPIO6     | SPI Data/MOSI (НЕ I2C!) |
+| RST        | GPIO3     | Reset |
+| DC         | GPIO7     | Data/Command |
+| CS         | GPIO10    | Chip Select |
+| BL         | GPIO21    | Backlight (PWM) |
+
+### MPU6050 акселерометр (I2C)
+Модуль имеет пины: SCL SDA XDA XCL ADO INT
+
+| Пин модуля | Пин ESP32 | Назначение |
+|------------|-----------|------------|
+| SCL        | GPIO0     | I2C Clock |
+| SDA        | GPIO1     | I2C Data |
+| XDA        | —         | Не подключать (auxiliary) |
+| XCL        | —         | Не подключать (auxiliary) |
+| ADO        | GND       | Адрес 0x68 (если VCC → 0x69) |
+| INT        | GPIO4     | Interrupt (wake-up) |
+
+### Кнопка TTP223
+| Пин модуля | Пин ESP32 | Назначение |
+|------------|-----------|------------|
+| SIG        | GPIO20    | Signal (Active HIGH) |
+| VCC        | 3.3V      | Питание |
+| GND        | GND       | Земля |
+
+### Вибромотор (через NPN транзистор)
+| Компонент | Подключение |
+|-----------|-------------|
+| Motor+    | 3.3V |
+| Motor-    | Collector NPN (BC547/2N2222) |
+| Base      | GPIO2 через R 1kΩ |
+| Emitter   | GND |
 
 ## Wi-Fi (опционально)
 
