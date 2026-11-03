@@ -2,8 +2,8 @@ export default function Setup() {
   const steps = [
     {
       num: 1,
-      title: 'Установите Arduino IDE',
-      description: 'Скачайте и установите Arduino IDE 2.x. Добавьте URL ESP32 в настройки Boards Manager.',
+      title: 'Установите Arduino IDE / PlatformIO',
+      description: 'Скачайте Arduino IDE 2.x или PlatformIO. Добавьте URL ESP32 в настройки Boards Manager.',
       details: [
         'File → Preferences → Additional Board Manager URLs',
         'Добавьте: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json',
@@ -13,7 +13,7 @@ export default function Setup() {
     {
       num: 2,
       title: 'Установите библиотеки',
-      description: 'Через Library Manager установите необходимые библиотеки.',
+      description: 'Через Library Manager или platformio.ini установите необходимые библиотеки.',
       details: [
         'Sketch → Include Library → Manage Libraries',
         'Установите: Adafruit GFX Library',
@@ -69,6 +69,15 @@ export default function Setup() {
 
   const troubleshooting = [
     {
+      problem: '❌ fatal error: U8g2_for_Adafruit_GFX.h: No such file or directory',
+      solutions: [
+        'Добавьте в platformio.ini → lib_deps: olikraus/U8g2_for_Adafruit_GFX',
+        'Также добавьте: adafruit/Adafruit GFX Library, adafruit/Adafruit ST7789 Library',
+        'Или через CLI: platformio lib install "U8g2_for_Adafruit_GFX"',
+        'После изменения platformio.ini выполните: pio run -t clean, затем pio run'
+      ]
+    },
+    {
       problem: 'Экран белый / не работает',
       solutions: [
         'Проверьте питание 3.3V',
@@ -123,6 +132,52 @@ export default function Setup() {
           </p>
         </div>
 
+        {/* PlatformIO Fix Banner */}
+        <div className="mb-12 p-6 rounded-2xl bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10 border border-red-500/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-red-400">Ошибка компиляции PlatformIO</h3>
+                <p className="text-xs text-gray-400 font-mono">fatal error: U8g2_for_Adafruit_GFX.h: No such file or directory</p>
+              </div>
+            </div>
+            
+            <div className="bg-black/40 rounded-xl p-4 border border-white/10 mb-4">
+              <p className="text-sm text-gray-300 mb-3">
+                <span className="text-yellow-400 font-bold">Решение:</span> Добавьте недостающие библиотеки в <code className="text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">platformio.ini</code>:
+              </p>
+              <pre className="text-xs font-mono text-green-400 bg-black/50 rounded-lg p-3 overflow-x-auto border border-green-500/20">
+{`[env:esp32-c3]
+platform = espressif32
+board = esp32-c3-devkitm-1
+framework = arduino
+
+lib_deps = 
+    adafruit/Adafruit GFX Library@^1.11.9
+    adafruit/Adafruit ST7789 Library@^1.10.4
+    adafruit/Adafruit BusIO@^1.16.1
+    olikraus/U8g2_for_Adafruit_GFX@^1.8.0
+    Wire
+    SPI`}</pre>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400">
+                ✓ После изменения запустите: <code className="font-mono">pio run -t clean</code>
+              </span>
+              <span className="text-xs px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                ✓ Или через VS Code: PlatformIO → Libraries → Install
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Steps */}
         <div className="space-y-6 mb-16">
           {steps.map((step) => (
@@ -151,8 +206,8 @@ export default function Setup() {
           <h3 className="text-2xl font-bold text-white text-center mb-8">Решение проблем</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {troubleshooting.map((item, i) => (
-              <div key={i} className="p-5 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                <h4 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
+              <div key={i} className={`p-5 rounded-xl ${i === 0 ? 'bg-red-500/5 border border-red-500/30 md:col-span-2' : 'bg-amber-500/5 border border-amber-500/20'}`}>
+                <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${i === 0 ? 'text-red-400' : 'text-amber-400'}`}>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -160,8 +215,8 @@ export default function Setup() {
                 </h4>
                 <ul className="space-y-1.5">
                   {item.solutions.map((s, j) => (
-                    <li key={j} className="text-xs text-gray-400 flex items-start gap-2">
-                      <span className="text-amber-400/70 mt-0.5">•</span>
+                    <li key={j} className={`text-xs flex items-start gap-2 ${i === 0 ? 'text-gray-300' : 'text-gray-400'}`}>
+                      <span className={`${i === 0 ? 'text-red-400/70' : 'text-amber-400/70'} mt-0.5`}>•</span>
                       {s}
                     </li>
                   ))}
