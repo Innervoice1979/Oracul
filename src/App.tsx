@@ -7,6 +7,7 @@ import Architecture from './components/Architecture'
 import CodeSection from './components/CodeSection'
 import AutoMode from './components/AutoMode'
 import VibrMotor from './components/VibrMotor'
+import WebPanel from './components/WebPanel'
 import Setup from './components/Setup'
 import Download from './components/Download'
 import Footer from './components/Footer'
@@ -20,7 +21,7 @@ function App() {
     const handleScroll = () => {
       setScrollY(window.scrollY)
       
-      const sections = ['hero', 'hardware', 'pinout', 'modes', 'architecture', 'code', 'setup', 'download']
+      const sections = ['hero', 'hardware', 'pinout', 'modes', 'architecture', 'code', 'webpanel', 'setup', 'download']
       for (const section of [...sections].reverse()) {
         const el = document.getElementById(section)
         if (el && el.offsetTop - 200 <= window.scrollY) {
@@ -45,6 +46,7 @@ function App() {
       <CodeSection />
       <AutoMode />
       <VibrMotor />
+      <WebPanel />
       <Setup />
       <Download />
       <Footer />
