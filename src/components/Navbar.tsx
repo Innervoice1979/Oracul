@@ -14,6 +14,7 @@ const navItems = [
   { id: 'automode', label: '🚗 AUTO' },
   { id: 'vibr', label: '📳 Вибро' },
   { id: 'webpanel', label: '🌐 Веб-панель' },
+  { id: 'fixes', label: '🔧 Фикс' },
   { id: 'setup', label: 'Настройка' },
   { id: 'download', label: '⬇ Скачать' },
 ]
