@@ -5,6 +5,7 @@ import Pinout from './components/Pinout'
 import Modes from './components/Modes'
 import Architecture from './components/Architecture'
 import CodeSection from './components/CodeSection'
+import AutoMode from './components/AutoMode'
 import Setup from './components/Setup'
 import Download from './components/Download'
 import Footer from './components/Footer'
@@ -41,6 +42,7 @@ function App() {
       <Modes />
       <Architecture />
       <CodeSection />
+      <AutoMode />
       <Setup />
       <Download />
       <Footer />

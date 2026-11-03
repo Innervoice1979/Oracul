@@ -11,6 +11,7 @@ const navItems = [
   { id: 'modes', label: 'Режимы' },
   { id: 'architecture', label: 'Архитектура' },
   { id: 'code', label: 'Код' },
+  { id: 'automode', label: '🚗 AUTO' },
   { id: 'setup', label: 'Настройка' },
   { id: 'download', label: '⬇ Скачать' },
 ]
