@@ -18,7 +18,6 @@
 #include <HTTPClient.h>
 #include "esp_sleep.h"
 #include "esp_random.h"
-#include <SoftwareSerial.h>
 
 // ============================================================================
 // КОНФИГУРАЦИЯ
@@ -79,11 +78,8 @@ const char* DEVICE_NAME       = "InnerVoice";
 #define LONG_MS     700
 #define DOUBLE_MS   300
 
-// --- GPS (режим AUTO) ---
-#define GPS_RX_PIN 8
-#define GPS_TX_PIN 9
-#define GPS_BAUD 9600
-#define CAMERA_ALERT_DISTANCE 300 // метров
+// --- AUTO режим (на акселерометре) ---
+#define AUTO_SAMPLE_MS 50  // частота опроса акселерометра в AUTO
 
 // ============================================================================
 // ГЛОБАЛЬНЫЕ ОБЪЕКТЫ
@@ -91,7 +87,6 @@ const char* DEVICE_NAME       = "InnerVoice";
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 U8G2_FOR_ADAFRUIT_GFX u8g2;
-SoftwareSerial gpsSerial(GPS_RX_PIN, GPS_TX_PIN);
 
 // ============================================================================
 // ЦВЕТА
@@ -114,59 +109,61 @@ bool ntpConfigured     = false;
 String lastConnStatus  = "";
 
 // ============================================================================
-// GPS ДАННЫЕ (режим AUTO)
+// AUTO РЕЖИМ — АНАЛИЗАТОР ВОЖДЕНИЯ (на акселерометре)
 // ============================================================================
-
-struct GPSData {
-  float latitude;
-  float longitude;
-  float speed_kmh;
-  float course;
-  bool valid;
-  unsigned long lastUpdate;
-};
-
-GPSData gpsData = {0, 0, 0, 0, false, 0};
-
-// ============================================================================
-// КАМЕРЫ СКОРОСТИ (локальная база)
-// ============================================================================
-
-struct SpeedCamera {
-  float lat;
-  float lon;
-  int speedLimit;
-  const char* type; // "speed", "redlight", "mobile"
-};
-
-// Пример: камеры Москвы (замените на свои координаты)
-const SpeedCamera cameras[] = {
-  {55.7558, 37.6173, 60, "speed"},
-  {55.7500, 37.6200, 80, "redlight"},
-  {55.7600, 37.6100, 60, "speed"},
-  {55.7400, 37.6300, 60, "speed"},
-  {55.7700, 37.6000, 80, "redlight"},
-};
-
-const int CAMERA_COUNT = sizeof(cameras) / sizeof(cameras[0]);
-
-// ============================================================================
-// AUTO РЕЖИМ — СОСТОЯНИЕ
+//
+// Что можно определить только по MPU6050:
+//  • Разгон / торможение — продольное ускорение (ось X при горизонтальном)
+//  • Повороты            — боковое ускорение (ось Y)
+//  • Вибрация / неровности дороги — высокочастотный шум по Z
+//  • Уклон               — проекция гравитации на ось Z
+//  • Резкие манёвры      — пики ускорения (джёрк)
+//  • Стиль вождения      — по статистике ускорений
+//  • Относительная скорость — интеграл ускорения с коррекцией дрейфа
+//
+// НЕЛЬЗЯ определить:
+//  • Абсолютную скорость (нужен GPS)
+//  • Координаты (нужен GPS)
+//  • Камеры скорости (нужна база координат)
 // ============================================================================
 
 struct AutoState {
-  float roadOffset;
-  float turnAngle;
-  bool turnLeft;
-  bool turnRight;
-  unsigned long turnStartTime;
-  int currentSpeedLimit;
-  bool speedWarning;
-  unsigned long lastCameraCheck;
-  int cameraAlertTimer;
+  // Скорость (относительная, условные единицы 0-200)
+  float relSpeed;          // относительная скорость
+  float speedSmooth;       // сглаженная для отображения
+  
+  // Ускорения (сглаженные)
+  float axSmooth, aySmooth, azSmooth;
+  
+  // События
+  bool accelerating;       // разгон
+  bool braking;            // торможение
+  bool turnLeft;           // поворот влево
+  bool turnRight;          // поворот вправо
+  bool bumpyRoad;          // неровная дорога
+  bool sharpManeuver;      // резкий манёвр
+  unsigned long eventTime; // время последнего события
+  
+  // Статистика
+  int turnCount;           // счётчик поворотов
+  int brakeCount;          // счётчик торможений
+  int accelCount;          // счётчик разгонов
+  int sharpCount;          // счётчик резких манёвров
+  unsigned long driveTime; // время в движении
+  
+  // Анимация
+  float roadOffset;        // смещение разметки
+  float carTilt;           // наклон машинки при повороте
+  bool isMoving;           // устройство в движении
+  
+  // Стиль вождения (0-100, где 100 = очень агрессивный)
+  int drivingStyle;
 };
 
-AutoState autoState = {0, 0, false, false, 0, 60, false, 0, 0};
+AutoState autoState = {0};
+
+unsigned long autoLastSample = 0;
+unsigned long autoDriveStart = 0;
 
 // ============================================================================
 // ОРАКУЛ — ФРАЗЫ
@@ -1280,153 +1277,156 @@ void handleButton(ButtonEvent ev) {
 }
 
 // ============================================================================
-// GPS ПАРСИНГ (NMEA)
+// AUTO РЕЖИМ — АНАЛИЗАТОР ВОЖДЕНИЯ
 // ============================================================================
 
-void setupGPS() {
-  gpsSerial.begin(GPS_BAUD);
-#if ENABLE_SERIAL
-  Serial.println("GPS initialized");
-#endif
+void resetAutoState() {
+  autoState.relSpeed = 0;
+  autoState.speedSmooth = 0;
+  autoState.axSmooth = 0;
+  autoState.aySmooth = 0;
+  autoState.azSmooth = 0;
+  autoState.accelerating = false;
+  autoState.braking = false;
+  autoState.turnLeft = false;
+  autoState.turnRight = false;
+  autoState.bumpyRoad = false;
+  autoState.sharpManeuver = false;
+  autoState.turnCount = 0;
+  autoState.brakeCount = 0;
+  autoState.accelCount = 0;
+  autoState.sharpCount = 0;
+  autoState.driveTime = 0;
+  autoState.roadOffset = 0;
+  autoState.carTilt = 0;
+  autoState.isMoving = false;
+  autoState.drivingStyle = 0;
+  autoDriveStart = millis();
 }
 
-bool parseGPRMC(const char* sentence) {
-  char buffer[128];
-  strncpy(buffer, sentence, sizeof(buffer) - 1);
-  buffer[sizeof(buffer) - 1] = '\0';
-  
-  char* parts[13];
-  int partCount = 0;
-  char* token = strtok(buffer, ",*");
-  while (token && partCount < 13) {
-    parts[partCount++] = token;
-    token = strtok(NULL, ",*");
+// Обновление AUTO режима (опрос акселерометра)
+void updateAutoMode(unsigned long now) {
+  if (!mpuReady) {
+    drawAutoMode();
+    return;
   }
   
-  if (partCount < 10) return false;
-  if (strcmp(parts[0], "$GPRMC") != 0) return false;
-  if (strcmp(parts[2], "A") != 0) return false;
-  
-  float lat = atof(parts[3]);
-  int latDeg = (int)(lat / 100);
-  float latMin = lat - latDeg * 100;
-  gpsData.latitude = latDeg + latMin / 60.0;
-  if (strcmp(parts[4], "S") == 0) gpsData.latitude = -gpsData.latitude;
-  
-  float lon = atof(parts[5]);
-  int lonDeg = (int)(lon / 100);
-  float lonMin = lon - lonDeg * 100;
-  gpsData.longitude = lonDeg + lonMin / 60.0;
-  if (strcmp(parts[6], "W") == 0) gpsData.longitude = -gpsData.longitude;
-  
-  float speedKnots = atof(parts[7]);
-  gpsData.speed_kmh = speedKnots * 1.852;
-  gpsData.course = atof(parts[8]);
-  
-  gpsData.valid = true;
-  gpsData.lastUpdate = millis();
-  return true;
-}
-
-void updateGPS() {
-  static char buffer[128];
-  static int bufPos = 0;
-  
-  while (gpsSerial.available()) {
-    char c = gpsSerial.read();
-    if (c == '$') {
-      bufPos = 0;
-    } else if (c == '\n' || c == '\r') {
-      if (bufPos > 0) {
-        buffer[bufPos] = '\0';
-        if (strstr(buffer, "$GPRMC")) {
-          parseGPRMC(buffer);
-        }
-        bufPos = 0;
-      }
-    } else {
-      if (bufPos < (int)sizeof(buffer) - 1) {
-        buffer[bufPos++] = c;
-      }
-    }
+  // Опрос каждые AUTO_SAMPLE_MS
+  if (now - autoLastSample < AUTO_SAMPLE_MS) {
+    drawAutoMode();
+    return;
   }
+  autoLastSample = now;
   
-  if (millis() - gpsData.lastUpdate > 5000) {
-    gpsData.valid = false;
-  }
-}
-
-// ============================================================================
-// ДЕТЕКЦИЯ ПОВОРОТОВ
-// ============================================================================
-
-void detectTurn() {
-  if (!mpuReady) return;
+  // Чтение акселерометра
   AccelData a = readAccelBurst();
   
-  const int TURN_THRESHOLD = 5000;
-  float lateralAccel = a.x;
+  // Сглаживание (экспоненциальное)
+  const float alpha = 0.15;
+  autoState.axSmooth = autoState.axSmooth * (1 - alpha) + a.x * alpha;
+  autoState.aySmooth = autoState.aySmooth * (1 - alpha) + a.y * alpha;
+  autoState.azSmooth = autoState.azSmooth * (1 - alpha) + a.z * alpha;
   
-  if (abs((int)lateralAccel) > TURN_THRESHOLD) {
-    if (lateralAccel > 0) {
-      autoState.turnRight = true;
-      autoState.turnLeft = false;
-    } else {
-      autoState.turnLeft = true;
-      autoState.turnRight = false;
-    }
-    autoState.turnStartTime = millis();
+  // === ДЕТЕКЦИЯ СОБЫТИЙ ===
+  
+  // Продольное ускорение (разгон/торможение)
+  // При горизонтальном положении: ось X — вперёд/назад
+  const float ACCEL_THRESHOLD = 3000;  // ~0.18g
+  const float BRAKE_THRESHOLD = -4000; // ~0.24g торможение
+  
+  bool wasAccel = autoState.accelerating;
+  bool wasBrake = autoState.braking;
+  
+  autoState.accelerating = (autoState.axSmooth > ACCEL_THRESHOLD);
+  autoState.braking = (autoState.axSmooth < BRAKE_THRESHOLD);
+  
+  // Счётчики событий (фронт детектирования)
+  if (autoState.accelerating && !wasAccel) {
+    autoState.accelCount++;
+    autoState.eventTime = now;
+  }
+  if (autoState.braking && !wasBrake) {
+    autoState.brakeCount++;
+    autoState.eventTime = now;
   }
   
-  if (millis() - autoState.turnStartTime > 2000) {
-    autoState.turnLeft = false;
-    autoState.turnRight = false;
-  }
-}
-
-// ============================================================================
-// ПРОВЕРКА КАМЕР
-// ============================================================================
-
-float distanceBetween(float lat1, float lon1, float lat2, float lon2) {
-  const float R = 6371000;
-  float dLat = (lat2 - lat1) * PI / 180.0;
-  float dLon = (lon2 - lon1) * PI / 180.0;
-  float a = sin(dLat / 2) * sin(dLat / 2) +
-            cos(lat1 * PI / 180.0) * cos(lat2 * PI / 180.0) *
-            sin(dLon / 2) * sin(dLon / 2);
-  float c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  return R * c;
-}
-
-void checkCameras() {
-  if (!gpsData.valid) return;
-  if (millis() - autoState.lastCameraCheck < 1000) return;
-  autoState.lastCameraCheck = millis();
+  // Боковое ускорение (повороты)
+  const float TURN_THRESHOLD = 5000; // ~0.3g
   
-  autoState.currentSpeedLimit = 60;
-  autoState.speedWarning = false;
+  bool wasLeft = autoState.turnLeft;
+  bool wasRight = autoState.turnRight;
   
-  for (int i = 0; i < CAMERA_COUNT; i++) {
-    float dist = distanceBetween(
-      gpsData.latitude, gpsData.longitude,
-      cameras[i].lat, cameras[i].lon
-    );
-    
-    if (dist < CAMERA_ALERT_DISTANCE) {
-      autoState.currentSpeedLimit = cameras[i].speedLimit;
-      autoState.cameraAlertTimer = 3000;
-      break;
-    }
+  autoState.turnLeft = (autoState.aySmooth < -TURN_THRESHOLD);
+  autoState.turnRight = (autoState.aySmooth > TURN_THRESHOLD);
+  
+  if ((autoState.turnLeft && !wasLeft) || (autoState.turnRight && !wasRight)) {
+    autoState.turnCount++;
+    autoState.eventTime = now;
   }
   
-  if (gpsData.speed_kmh > autoState.currentSpeedLimit + 5) {
-    autoState.speedWarning = true;
+  // Вибрация/неровности (высокочастотный шум по Z)
+  float zDiff = abs(a.z - autoState.azSmooth);
+  autoState.bumpyRoad = (zDiff > 2000);
+  
+  // Резкий манёвр (большое суммарное ускорение)
+  float totalAccel = sqrt(autoState.axSmooth * autoState.axSmooth +
+                          autoState.aySmooth * autoState.aySmooth +
+                          autoState.azSmooth * autoState.azSmooth);
+  autoState.sharpManeuver = (totalAccel > 20000); // ~1.2g
+  if (autoState.sharpManeuver && now - autoState.eventTime > 500) {
+    autoState.sharpCount++;
+    autoState.eventTime = now;
   }
   
-  if (autoState.cameraAlertTimer > 0) {
-    autoState.cameraAlertTimer -= 15;
+  // === ОТНОСИТЕЛЬНАЯ СКОРОСТЬ ===
+  // Интегрируем продольное ускорение (очень приблизительно)
+  // 1g = 16384 LSB при ±2g
+  // Ускорение в g: axSmooth / 16384
+  // Скорость += ускорение * dt
+  float accelG = autoState.axSmooth / 16384.0;
+  float dt = AUTO_SAMPLE_MS / 1000.0;
+  autoState.relSpeed += accelG * dt * 50; // масштабирование
+  
+  // Ограничение
+  if (autoState.relSpeed < 0) autoState.relSpeed = 0;
+  if (autoState.relSpeed > 200) autoState.relSpeed = 200;
+  
+  // Затухание (имитация трения)
+  autoState.relSpeed *= 0.995;
+  
+  // Сглаженная для отображения
+  autoState.speedSmooth = autoState.speedSmooth * 0.8 + autoState.relSpeed * 0.2;
+  
+  // === ДЕТЕКЦИЯ ДВИЖЕНИЯ ===
+  // Если вибрация или ускорение выше порога — считаем что едем
+  float vibration = abs(a.x) + abs(a.y) + abs(a.z - 16384); // отклонение от 1g по Z
+  autoState.isMoving = (vibration > 3000 || abs(autoState.axSmooth) > 1500);
+  
+  if (autoState.isMoving) {
+    autoState.driveTime = now - autoDriveStart;
   }
+  
+  // === АНИМАЦИЯ ===
+  // Скорость анимации дороги зависит от relSpeed
+  autoState.roadOffset += autoState.speedSmooth * 0.3;
+  if (autoState.roadOffset > 30) autoState.roadOffset = 0;
+  
+  // Наклон машинки при повороте
+  float targetTilt = autoState.aySmooth / 10000.0; // -1..1
+  if (targetTilt > 1) targetTilt = 1;
+  if (targetTilt < -1) targetTilt = -1;
+  autoState.carTilt = autoState.carTilt * 0.7 + targetTilt * 0.3;
+  
+  // === СТИЛЬ ВОЖДЕНИЯ ===
+  // Агрессивность = (резкие манёвры + разгоны + торможения) / время
+  unsigned long elapsed = (now - autoDriveStart) / 1000;
+  if (elapsed > 5) {
+    int events = autoState.sharpCount * 3 + autoState.brakeCount + autoState.accelCount;
+    autoState.drivingStyle = (events * 100) / elapsed;
+    if (autoState.drivingStyle > 100) autoState.drivingStyle = 100;
+  }
+  
+  drawAutoMode();
 }
 
 // ============================================================================
@@ -1439,15 +1439,15 @@ void drawAutoMode() {
   int centerX = SCREEN_WIDTH / 2;
   int centerY = SCREEN_HEIGHT / 2;
   
-  // Анимация дороги
-  autoState.roadOffset += gpsData.speed_kmh * 0.1;
-  if (autoState.roadOffset > 20) autoState.roadOffset = 0;
+  // === ДОРОГА (перспектива) ===
+  int horizonY = centerY - 20;
   
-  int horizonY = centerY - 30;
+  // Небо/горизонт
   tft.drawLine(0, horizonY, SCREEN_WIDTH, horizonY, C_DIM);
   
-  int roadWidthTop = 40;
-  int roadWidthBottom = SCREEN_WIDTH;
+  // Дорожное полотно
+  int roadWidthTop = 30;
+  int roadWidthBottom = SCREEN_WIDTH + 20;
   
   for (int y = horizonY; y < SCREEN_HEIGHT; y += 2) {
     float progress = (float)(y - horizonY) / (SCREEN_HEIGHT - horizonY);
@@ -1455,90 +1455,176 @@ void drawAutoMode() {
     int roadLeft = centerX - roadWidth / 2;
     int roadRight = centerX + roadWidth / 2;
     
-    tft.drawLine(roadLeft, y, roadRight, y, tft.color565(40, 40, 40));
+    // Асфальт
+    uint8_t shade = 25 + progress * 15;
+    if (autoState.bumpyRoad && progress > 0.5) {
+      shade += random(-5, 5); // дрожание при неровностях
+    }
+    tft.drawLine(roadLeft, y, roadRight, y, tft.color565(shade, shade, shade + 5));
     
-    int dashY = (y + (int)autoState.roadOffset) % 20;
-    if (dashY < 10) {
-      int dashWidth = 2 + progress * 4;
+    // Обочина
+    tft.drawLine(roadLeft, y, roadLeft + 2 + progress * 3, y, tft.color565(80, 80, 40));
+    tft.drawLine(roadRight - 2 - progress * 3, y, roadRight, y, tft.color565(80, 80, 40));
+    
+    // Разметка (пунктир)
+    int dashY = ((int)(y + autoState.roadOffset)) % 30;
+    if (dashY < 15 && progress > 0.1) {
+      int dashWidth = 1 + progress * 4;
       tft.drawLine(centerX - dashWidth, y, centerX + dashWidth, y, C_FG);
     }
   }
   
-  // Повороты
+  // === ПОВОРОТЫ — СТРЕЛКИ ===
   if (autoState.turnLeft) {
-    tft.fillTriangle(20, centerY, 50, centerY - 20, 50, centerY + 20, C_ACC);
-    printCentered(centerY + 40, "ПОВОРОТ", C_ACC, FONT_RU);
+    uint16_t arrowColor = C_ACC;
+    tft.fillTriangle(25, centerY - 10, 55, centerY - 30, 55, centerY + 10, arrowColor);
+    u8g2.setFont(FONT_RU);
+    u8g2.setForegroundColor(arrowColor);
+    u8g2.drawUTF8(15, centerY + 30, "LEFT");
   }
   if (autoState.turnRight) {
-    tft.fillTriangle(SCREEN_WIDTH - 20, centerY,
-                     SCREEN_WIDTH - 50, centerY - 20,
-                     SCREEN_WIDTH - 50, centerY + 20, C_ACC);
-    printCentered(centerY + 40, "ПОВОРОТ", C_ACC, FONT_RU);
+    uint16_t arrowColor = C_ACC;
+    tft.fillTriangle(SCREEN_WIDTH - 25, centerY - 10,
+                     SCREEN_WIDTH - 55, centerY - 30,
+                     SCREEN_WIDTH - 55, centerY + 10, arrowColor);
+    u8g2.setFont(FONT_RU);
+    u8g2.setForegroundColor(arrowColor);
+    int16_t w = u8g2.getUTF8Width("RIGHT");
+    u8g2.drawUTF8(SCREEN_WIDTH - 15 - w, centerY + 30, "RIGHT");
   }
   
-  // Машинка (жёлтая)
-  int carY = SCREEN_HEIGHT - 60;
+  // === МАШИНКА (жёлтая, с наклоном) ===
+  int carY = SCREEN_HEIGHT - 55;
+  int carX = centerX + (int)(autoState.carTilt * 15);
   uint16_t carColor = tft.color565(255, 220, 0);
-  tft.fillRect(centerX - 15, carY - 10, 30, 20, carColor);
-  tft.fillRect(centerX - 10, carY - 20, 20, 10, carColor);
-  tft.fillCircle(centerX - 12, carY + 10, 5, C_BG);
-  tft.fillCircle(centerX + 12, carY + 10, 5, C_BG);
+  uint16_t carDark = tft.color565(200, 170, 0);
   
-  // Спидометр
-  int speedX = 60;
+  // Тень
+  tft.fillEllipse(carX, carY + 14, 18, 4, tft.color565(10, 10, 10));
+  
+  // Кузов
+  tft.fillRect(carX - 15, carY - 8, 30, 18, carColor);
+  // Крыша
+  tft.fillRect(carX - 10, carY - 18, 20, 10, carDark);
+  // Стёкла
+  tft.fillRect(carX - 8, carY - 16, 16, 6, tft.color565(80, 150, 200));
+  // Колёса
+  tft.fillCircle(carX - 12, carY + 10, 5, C_BG);
+  tft.fillCircle(carX + 12, carY + 10, 5, C_BG);
+  tft.fillCircle(carX - 12, carY + 10, 2, tft.color565(60, 60, 60));
+  tft.fillCircle(carX + 12, carY + 10, 2, tft.color565(60, 60, 60));
+  
+  // Фары при торможении — красные
+  if (autoState.braking) {
+    tft.fillRect(carX - 14, carY + 5, 3, 3, C_RED);
+    tft.fillRect(carX + 11, carY + 5, 3, 3, C_RED);
+  }
+  
+  // === СПИДОМЕТР (относительный) ===
+  int speedX = 55;
   int speedY = 40;
-  tft.fillCircle(speedX, speedY, 35, tft.color565(20, 20, 20));
-  tft.drawCircle(speedX, speedY, 35, C_DIM);
+  tft.fillCircle(speedX, speedY, 32, tft.color565(15, 15, 15));
+  tft.drawCircle(speedX, speedY, 32, C_DIM);
+  
+  // Дуга спидометра
+  for (int i = 0; i < 10; i++) {
+    float angle = PI + i * PI / 10;
+    int x1 = speedX + cos(angle) * 28;
+    int y1 = speedY + sin(angle) * 28;
+    int x2 = speedX + cos(angle) * 32;
+    int y2 = speedY + sin(angle) * 32;
+    tft.drawLine(x1, y1, x2, y2, C_DIM);
+  }
   
   char speedStr[8];
-  snprintf(speedStr, sizeof(speedStr), "%.0f", gpsData.speed_kmh);
+  snprintf(speedStr, sizeof(speedStr), "%.0f", autoState.speedSmooth);
   u8g2.setFont(FONT_TITLE);
   int16_t w = u8g2.getUTF8Width(speedStr);
-  u8g2.setForegroundColor(autoState.speedWarning ? C_RED : C_FG);
-  u8g2.drawUTF8(speedX - w / 2, speedY + 8, speedStr);
+  u8g2.setForegroundColor(C_FG);
+  u8g2.drawUTF8(speedX - w / 2, speedY + 6, speedStr);
   
   u8g2.setFont(FONT_SMALL);
   u8g2.setForegroundColor(C_DIM);
-  u8g2.drawUTF8(speedX - 10, speedY + 20, "km/h");
+  u8g2.drawUTF8(speedX - 12, speedY + 18, "rel km/h");
   
-  // Ограничение скорости
-  int limitX = SCREEN_WIDTH - 60;
-  int limitY = 40;
-  tft.fillCircle(limitX, limitY, 25, C_BG);
-  tft.drawCircle(limitX, limitY, 25, C_RED);
-  tft.drawCircle(limitX, limitY, 22, C_RED);
+  // === ИНДИКАТОРЫ СОБЫТИЙ ===
+  int indY = 90;
   
-  char limitStr[4];
-  snprintf(limitStr, sizeof(limitStr), "%d", autoState.currentSpeedLimit);
-  u8g2.setFont(FONT_RU);
-  w = u8g2.getUTF8Width(limitStr);
-  u8g2.setForegroundColor(C_FG);
-  u8g2.drawUTF8(limitX - w / 2, limitY + 5, limitStr);
-  
-  // Предупреждение о камере
-  if (autoState.cameraAlertTimer > 0) {
-    tft.fillRect(0, SCREEN_HEIGHT - 30, SCREEN_WIDTH, 30, tft.color565(200, 0, 0));
-    printCentered(SCREEN_HEIGHT - 10, "CAMERA!", C_FG, FONT_RU);
+  // Разгон
+  if (autoState.accelerating) {
+    u8g2.setFont(FONT_SMALL);
+    u8g2.setForegroundColor(C_GOOD);
+    u8g2.drawUTF8(10, indY, ">>>");
   }
   
-  // Превышение скорости
-  if (autoState.speedWarning) {
-    if ((millis() / 500) % 2 == 0) {
-      printCentered(SCREEN_HEIGHT - 50, "SPEED!", C_RED, FONT_RU);
-    }
+  // Торможение
+  if (autoState.braking) {
+    u8g2.setFont(FONT_SMALL);
+    u8g2.setForegroundColor(C_RED);
+    u8g2.drawUTF8(SCREEN_WIDTH - 35, indY, "!!!");
   }
   
-  // GPS статус
-  if (!gpsData.valid) {
-    printCentered(SCREEN_HEIGHT - 10, "GPS: searching...", C_DIM, FONT_SMALL);
+  // Неровная дорога
+  if (autoState.bumpyRoad) {
+    u8g2.setFont(FONT_SMALL);
+    u8g2.setForegroundColor(C_WARN);
+    u8g2.drawUTF8(centerX - 15, indY, "BUMPY");
   }
-}
-
-void updateAutoMode(unsigned long now) {
-  updateGPS();
-  detectTurn();
-  checkCameras();
-  drawAutoMode();
+  
+  // === СТАТИСТИКА ===
+  int statY = SCREEN_HEIGHT - 40;
+  u8g2.setFont(FONT_SMALL);
+  u8g2.setForegroundColor(C_DIM);
+  
+  char statStr[64];
+  snprintf(statStr, sizeof(statStr), "T:%d B:%d A:%d S:%d",
+           autoState.turnCount, autoState.brakeCount,
+           autoState.accelCount, autoState.sharpCount);
+  u8g2.drawUTF8(10, statY, statStr);
+  
+  // Время в движении
+  unsigned long sec = autoState.driveTime / 1000;
+  snprintf(statStr, sizeof(statStr), "%02lu:%02lu", sec / 60, sec % 60);
+  w = u8g2.getUTF8Width(statStr);
+  u8g2.drawUTF8(SCREEN_WIDTH - 10 - w, statY, statStr);
+  
+  // === СТИЛЬ ВОЖДЕНИЯ ===
+  int barY = SCREEN_HEIGHT - 20;
+  int barW = SCREEN_WIDTH - 20;
+  int barH = 6;
+  
+  tft.fillRect(10, barY, barW, barH, tft.color565(30, 30, 30));
+  
+  uint16_t barColor;
+  if (autoState.drivingStyle < 30) barColor = C_GOOD;
+  else if (autoState.drivingStyle < 60) barColor = C_ACC;
+  else if (autoState.drivingStyle < 80) barColor = C_WARN;
+  else barColor = C_RED;
+  
+  int fillW = (barW * autoState.drivingStyle) / 100;
+  tft.fillRect(10, barY, fillW, barH, barColor);
+  
+  u8g2.setFont(FONT_SMALL);
+  u8g2.setForegroundColor(C_DIM);
+  u8g2.drawUTF8(10, barY - 3, "STYLE:");
+  
+  const char* styleName;
+  if (autoState.drivingStyle < 20) styleName = "CALM";
+  else if (autoState.drivingStyle < 50) styleName = "NORMAL";
+  else if (autoState.drivingStyle < 75) styleName = "ACTIVE";
+  else styleName = "AGGRESSIVE";
+  w = u8g2.getUTF8Width(styleName);
+  u8g2.setForegroundColor(barColor);
+  u8g2.drawUTF8(SCREEN_WIDTH - 10 - w, barY - 3, styleName);
+  
+  // === СТАТУС ===
+  if (!autoState.isMoving) {
+    u8g2.setFont(FONT_SMALL);
+    u8g2.setForegroundColor(C_DIM);
+    const char* msg = "STATIONARY";
+    w = u8g2.getUTF8Width(msg);
+    u8g2.drawUTF8(centerX - w / 2, SCREEN_HEIGHT / 2 + 50, msg);
+  }
 }
 
 // ============================================================================
@@ -1576,7 +1662,7 @@ void setup() {
   button.begin(BTN_PIN, BTN_ACTIVE_HIGH);
 
   setupMPU();
-  setupGPS();
+  resetAutoState();
 
   WiFi.persistent(false);
   WiFi.mode(WIFI_OFF);

@@ -7,26 +7,10 @@ export default function Download() {
     {
       id: 'ino',
       name: 'ESPOracle.ino',
-      size: '45 KB',
-      description: 'Основной файл прошивки с режимом AUTO',
+      size: '42 KB',
+      description: 'Основной файл прошивки со всеми режимами (включая AUTO)',
       icon: '📄',
       color: 'cyan',
-    },
-    {
-      id: 'auto',
-      name: 'AutoMode.ino',
-      size: '12 KB',
-      description: 'Отдельный модуль AUTO режима (справочно)',
-      icon: '🚗',
-      color: 'yellow',
-    },
-    {
-      id: 'camera',
-      name: 'CAMERA_API.md',
-      size: '3 KB',
-      description: 'Источники данных о камерах скорости',
-      icon: '📷',
-      color: 'red',
     },
     {
       id: 'readme',
@@ -43,8 +27,6 @@ export default function Download() {
     
     const fileMap: Record<string, { url: string; name: string }> = {
       'ino': { url: '/firmware/ESPOracle.ino', name: 'ESPOracle.ino' },
-      'auto': { url: '/firmware/AutoMode.ino', name: 'AutoMode.ino' },
-      'camera': { url: '/firmware/CAMERA_API.md', name: 'CAMERA_API.md' },
       'readme': { url: '/firmware/README.md', name: 'README.md' },
     }
 
@@ -68,8 +50,6 @@ export default function Download() {
       setTimeout(() => {
         const fileMap: Record<string, string> = {
           'ino': '/firmware/ESPOracle.ino',
-          'auto': '/firmware/AutoMode.ino',
-          'camera': '/firmware/CAMERA_API.md',
           'readme': '/firmware/README.md',
         }
         const a = document.createElement('a')
@@ -95,18 +75,6 @@ export default function Download() {
       border: 'border-purple-500/20',
       text: 'text-purple-400',
       hover: 'hover:border-purple-500/40 hover:bg-purple-500/15',
-    },
-    yellow: {
-      bg: 'bg-yellow-500/10',
-      border: 'border-yellow-500/20',
-      text: 'text-yellow-400',
-      hover: 'hover:border-yellow-500/40 hover:bg-yellow-500/15',
-    },
-    red: {
-      bg: 'bg-red-500/10',
-      border: 'border-red-500/20',
-      text: 'text-red-400',
-      hover: 'hover:border-red-500/40 hover:bg-red-500/15',
     },
   }
 
