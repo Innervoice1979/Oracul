@@ -1,0 +1,2 @@
+# Oracul
+Qwen Chat Link
