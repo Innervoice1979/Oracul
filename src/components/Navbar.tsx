@@ -12,6 +12,7 @@ const navItems = [
   { id: 'architecture', label: 'Архитектура' },
   { id: 'code', label: 'Код' },
   { id: 'setup', label: 'Настройка' },
+  { id: 'download', label: '⬇ Скачать' },
 ]
 
 export default function Navbar({ activeSection }: NavbarProps) {

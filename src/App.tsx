@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Hero from './components/Hero'
 import Hardware from './components/Hardware'
 import Pinout from './components/Pinout'
@@ -6,6 +6,7 @@ import Modes from './components/Modes'
 import Architecture from './components/Architecture'
 import CodeSection from './components/CodeSection'
 import Setup from './components/Setup'
+import Download from './components/Download'
 import Footer from './components/Footer'
 import Navbar from './components/Navbar'
 
@@ -17,8 +18,8 @@ function App() {
     const handleScroll = () => {
       setScrollY(window.scrollY)
       
-      const sections = ['hero', 'hardware', 'pinout', 'modes', 'architecture', 'code', 'setup']
-      for (const section of sections.reverse()) {
+      const sections = ['hero', 'hardware', 'pinout', 'modes', 'architecture', 'code', 'setup', 'download']
+      for (const section of [...sections].reverse()) {
         const el = document.getElementById(section)
         if (el && el.offsetTop - 200 <= window.scrollY) {
           setActiveSection(section)
@@ -41,6 +42,7 @@ function App() {
       <Architecture />
       <CodeSection />
       <Setup />
+      <Download />
       <Footer />
     </div>
   )

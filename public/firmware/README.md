@@ -1,0 +1,67 @@
+# InnerVoice ESP Oracle — Прошивка
+
+## Требования
+
+### Плата
+- ESP32-C3 SuperMini
+
+### Компоненты
+- TFT ST7789 1.54" (240×240, SPI)
+- MPU6050 (I2C акселерометр/гироскоп)
+- TTP223 (емкостная кнопка)
+
+### Библиотеки Arduino
+Установите через Library Manager:
+1. **Adafruit GFX Library**
+2. **Adafruit ST7789 Library**
+3. **U8g2 for Adafruit GFX**
+
+### Настройки платы в Arduino IDE
+- Board: **ESP32C3 Dev Module**
+- USB CDC On Boot: **Enabled**
+- CPU Frequency: **160MHz**
+- Flash Mode: **QIO**
+- Flash Size: **4MB**
+
+## Подключение
+
+| Компонент | Сигнал | GPIO |
+|-----------|--------|------|
+| TFT SCLK  | SPI    | 5    |
+| TFT MOSI  | SPI    | 6    |
+| TFT CS    | SPI    | 10   |
+| TFT DC    | SPI    | 7    |
+| TFT RST   | SPI    | 3    |
+| TFT BL    | PWM    | 21   |
+| MPU SDA   | I2C    | 1    |
+| MPU SCL   | I2C    | 0    |
+| MPU INT   | Wake   | 4    |
+| Кнопка    | Signal | 20   |
+
+## Wi-Fi (опционально)
+
+Откройте файл и измените:
+```cpp
+const char* WIFI_SSID = "ваша_сеть";
+const char* WIFI_PASS = "ваш_пароль";
+```
+
+## Режимы
+
+1. **Оракул** — тряска или долгое нажатие → ответ
+2. **Часы** — время, дата, NTP
+3. **Игры** — Змейка (наклон), Реакция
+4. **Сеть** — Wi-Fi статус, mDNS
+5. **Робот** — Jarvis HTTP мост
+6. **Настройки** — диагностика
+
+## Управление
+
+- **Короткое** — следующий режим
+- **Долгое (700ms)** — действие режима
+- **Двойное (300ms)** — яркость
+
+## Пробуждение
+
+Устройство уходит в deep sleep через 25 сек бездействия.
+Пробуждается от тряски (MPU6050 INT → GPIO4).
