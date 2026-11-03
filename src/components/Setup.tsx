@@ -2,79 +2,109 @@ export default function Setup() {
   const steps = [
     {
       num: 1,
-      title: 'Установите Arduino IDE / PlatformIO',
-      description: 'Скачайте Arduino IDE 2.x или PlatformIO. Добавьте URL ESP32 в настройки Boards Manager.',
+      title: 'Установите Arduino IDE 2.x',
+      description: 'Скачайте Arduino IDE 2.x с официального сайта arduino.cc и установите.',
       details: [
-        'File → Preferences → Additional Board Manager URLs',
-        'Добавьте: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json',
-        'Boards Manager → установите "esp32 by Espressif Systems"'
+        'Скачайте: https://www.arduino.cc/en/software',
+        'Запустите установщик, выберите все компоненты',
+        'После установки откройте Arduino IDE'
       ]
     },
     {
       num: 2,
-      title: 'Установите библиотеки',
-      description: 'Через Library Manager или platformio.ini установите необходимые библиотеки.',
+      title: 'Добавьте поддержку ESP32',
+      description: 'Установите пакет плат ESP32 через Boards Manager.',
       details: [
-        'Sketch → Include Library → Manage Libraries',
-        'Установите: Adafruit GFX Library',
-        'Установите: Adafruit ST7789 Library',
-        'Установите: U8g2 for Adafruit GFX'
+        'File → Preferences (Ctrl+,)',
+        'В поле "Additional Board Manager URLs" вставьте:',
+        'https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json',
+        'Tools → Board → Boards Manager → найдите "esp32" → Install (by Espressif Systems, версия 2.0.x или 3.x)'
       ]
     },
     {
       num: 3,
+      title: 'Установите библиотеки',
+      description: 'Через Library Manager установите все необходимые библиотеки.',
+      details: [
+        'Sketch → Include Library → Manage Libraries (Ctrl+Shift+I)',
+        'Найдите и установите: "Adafruit GFX Library" (by Adafruit)',
+        'Найдите и установите: "Adafruit ST7789 Library" (by Adafruit)',
+        'Найдите и установите: "U8g2 for Adafruit GFX" (by olikraus)',
+        'Нажмите "Install All" когда предложит установить зависимости'
+      ]
+    },
+    {
+      num: 4,
       title: 'Соберите схему',
       description: 'Подключите все компоненты согласно распиновке. Проверьте питание и подтяжки I2C.',
       details: [
-        'TFT ST7789 → SPI пины (SCLK, MOSI, CS, DC, RST, BL)',
-        'MPU6050 → I2C пины (SDA, SCL, INT) + подтяжки 4.7kΩ',
+        'TFT ST7789 → SPI пины (SCLK=GPIO5, MOSI=GPIO6, CS=GPIO10, DC=GPIO7, RST=GPIO3, BL=GPIO21)',
+        'MPU6050 → I2C пины (SDA=GPIO1, SCL=GPIO0, INT=GPIO4) + подтяжки 4.7kΩ',
         'TTP223 → GPIO20 (Signal), VCC, GND',
         'Убедитесь что все на 3.3V'
       ]
     },
     {
-      num: 4,
-      title: 'Настройте скетч',
-      description: 'Откройте ESPOracle.ino и проверьте конфигурацию под вашу плату.',
-      details: [
-        'Выберите плату: ESP32C3 Dev Module',
-        'USB CDC On Boot: Enabled (для Serial)',
-        'Проверьте пины в секции PIN CONFIGURATION',
-        'При необходимости измените TFT_INVERT'
-      ]
-    },
-    {
       num: 5,
-      title: 'Прошейте и проверьте',
-      description: 'Загрузите прошивку и проверьте работу всех компонентов.',
+      title: 'Настройте плату в Arduino IDE',
+      description: 'Выберите правильную плату и параметры для ESP32-C3 SuperMini.',
       details: [
-        'Upload → дождитесь завершения',
-        'Проверьте интро-анимацию',
-        'Тряхните — должен появиться ответ оракула',
-        'Нажмите кнопку — переключение режимов'
+        'Tools → Board → esp32 → ESP32C3 Dev Module',
+        'USB CDC On Boot: Enabled (ВАЖНО для Serial!)',
+        'CPU Frequency: 160MHz',
+        'Flash Mode: QIO, Flash Size: 4MB, Partition Scheme: Default 4MB'
       ]
     },
     {
       num: 6,
-      title: 'Настройте Wi-Fi (опционально)',
-      description: 'Для режима часов и интеграции с Jarvis.',
+      title: 'Откройте скетч и прошейте',
+      description: 'Откройте ESPOracle.ino, выберите COM-порт и загрузите.',
       details: [
-        'В коде задайте WIFI_SSID и WIFI_PASS',
-        'Устройство подключится автоматически в режиме СЕТЬ',
-        'mDNS: inner-oracle.local',
-        'NTP синхронизация для часов'
+        'File → Open → выберите ESPOracle.ino',
+        'Tools → Port → выберите ваш COM-порт',
+        'Нажмите Upload (→) или Ctrl+U',
+        'Дождитесь "Done uploading" в нижней панели'
+      ]
+    },
+    {
+      num: 7,
+      title: 'Проверьте работу',
+      description: 'Убедитесь что все компоненты работают корректно.',
+      details: [
+        'Tools → Serial Monitor (115200 baud) — смотрите логи',
+        'Должна появиться интро-анимация на экране',
+        'Тряхните — должен появиться ответ оракула',
+        'Нажмите кнопку — переключение режимов'
       ]
     }
   ]
 
   const troubleshooting = [
     {
-      problem: '❌ fatal error: U8g2_for_Adafruit_GFX.h: No such file or directory',
+      problem: '❌ COM-порт не найден / не определяется',
       solutions: [
-        'Добавьте в platformio.ini → lib_deps: olikraus/U8g2_for_Adafruit_GFX',
-        'Также добавьте: adafruit/Adafruit GFX Library, adafruit/Adafruit ST7789 Library',
-        'Или через CLI: platformio lib install "U8g2_for_Adafruit_GFX"',
-        'После изменения platformio.ini выполните: pio run -t clean, затем pio run'
+        'Установите драйвер USB-to-UART: CP210x или CH340 (зависит от платы)',
+        'Tools → Port → если пусто, переустановите драйвер',
+        'Для ESP32-C3 SuperMini: USB CDC On Boot → Enabled',
+        'Попробуйте другой USB-кабель (не только зарядка!)'
+      ]
+    },
+    {
+      problem: '❌ Ошибка "Failed to connect to ESP32-C3"',
+      solutions: [
+        'Зажмите кнопку BOOT на плате, затем нажмите Upload',
+        'Отпустите BOOT после появления "Connecting..."',
+        'Снизьте Upload Speed до 115200',
+        'Попробуйте USB 2.0 порт (не хаб!)'
+      ]
+    },
+    {
+      problem: '❌ Библиотека не найдена при компиляции',
+      solutions: [
+        'Sketch → Include Library → Manage Libraries',
+        'Найдите точное название библиотеки и нажмите Install',
+        'Убедитесь что установлены ВСЕ зависимости (Install All)',
+        'Перезапустите Arduino IDE после установки'
       ]
     },
     {
@@ -132,33 +162,106 @@ export default function Setup() {
           </p>
         </div>
 
-        {/* PlatformIO Fix Banner */}
-        <div className="mb-12 p-6 rounded-2xl bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10 border border-red-500/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        {/* Arduino IDE Quick Start Banner */}
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-blue-500/10 border border-teal-500/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-teal-400">Быстрый старт через Arduino IDE</h3>
+                <p className="text-xs text-gray-400">Рекомендуемый способ прошивки для новичков</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-black/30 border border-white/10">
+                <div className="text-xs text-teal-400 font-bold mb-1">1. Скачать IDE</div>
+                <a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 hover:text-blue-300 underline">
+                  arduino.cc/en/software →
+                </a>
+              </div>
+              <div className="p-3 rounded-lg bg-black/30 border border-white/10">
+                <div className="text-xs text-teal-400 font-bold mb-1">2. Установить ESP32</div>
+                <p className="text-xs text-gray-400">Boards Manager → "esp32" → Install</p>
+              </div>
+              <div className="p-3 rounded-lg bg-black/30 border border-white/10">
+                <div className="text-xs text-teal-400 font-bold mb-1">3. Установить либы</div>
+                <p className="text-xs text-gray-400">Manage Libraries → Adafruit GFX, ST7789, U8g2</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Arduino IDE Board Settings */}
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-blue-500/5 to-transparent border border-blue-500/20">
+          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <span className="text-2xl">⚙️</span> Настройки платы в Arduino IDE
+          </h3>
+          <p className="text-sm text-gray-400 mb-4">
+            После установки ESP32 пакета, выберите плату и настройки:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { param: 'Board', value: 'ESP32C3 Dev Module', critical: true },
+              { param: 'USB CDC On Boot', value: 'Enabled', critical: true },
+              { param: 'CPU Frequency', value: '160 MHz', critical: false },
+              { param: 'Flash Mode', value: 'QIO', critical: false },
+              { param: 'Flash Size', value: '4MB (32Mb)', critical: false },
+              { param: 'Partition Scheme', value: 'Default 4MB with spiffs', critical: false },
+              { param: 'Upload Speed', value: '921600', critical: false },
+              { param: 'Erase All Flash', value: 'Only Once', critical: false },
+            ].map((item, i) => (
+              <div key={i} className={`p-3 rounded-lg border ${item.critical ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-black/20 border-white/5'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{item.param}</span>
+                  {item.critical && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">ВАЖНО</span>}
+                </div>
+                <code className="text-sm text-white font-mono font-bold">{item.value}</code>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+            <p className="text-xs text-red-400">
+              <span className="font-bold">⚠️ Критично:</span> USB CDC On Boot → <code className="bg-red-500/10 px-1 rounded">Enabled</code> — без этого Serial Monitor не будет работать, и прошивка может не загрузиться!
+            </p>
+          </div>
+        </div>
+
+        {/* PlatformIO Alternative */}
+        <details className="mb-12 group">
+          <summary className="cursor-pointer p-4 rounded-xl bg-white/[0.02] border border-white/10 hover:border-purple-500/20 transition-all flex items-center justify-between">
+            <span className="text-sm text-gray-400 flex items-center gap-2">
+              <span className="text-purple-400">⚡</span>
+              Альтернатива: если используете PlatformIO (VS Code)
+            </span>
+            <svg className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+          <div className="mt-3 p-5 rounded-xl bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10 border border-red-500/30">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-red-400">Ошибка компиляции PlatformIO</h3>
+                <h4 className="text-sm font-bold text-red-400">Ошибка: U8g2_for_Adafruit_GFX.h not found</h4>
                 <p className="text-xs text-gray-400 font-mono">fatal error: U8g2_for_Adafruit_GFX.h: No such file or directory</p>
               </div>
             </div>
             
-            <div className="bg-black/40 rounded-xl p-4 border border-white/10 mb-4">
-              <p className="text-sm text-gray-300 mb-3">
-                <span className="text-yellow-400 font-bold">Решение:</span> Добавьте недостающие библиотеки в <code className="text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">platformio.ini</code>:
+            <div className="bg-black/40 rounded-lg p-3 border border-white/10 mb-3">
+              <p className="text-xs text-gray-300 mb-2">
+                <span className="text-yellow-400 font-bold">Решение:</span> Добавьте в <code className="text-cyan-400 bg-cyan-400/10 px-1 rounded">platformio.ini</code>:
               </p>
-              <pre className="text-xs font-mono text-green-400 bg-black/50 rounded-lg p-3 overflow-x-auto border border-green-500/20">
-{`[env:esp32-c3]
-platform = espressif32
-board = esp32-c3-devkitm-1
-framework = arduino
-
-lib_deps = 
+              <pre className="text-xs font-mono text-green-400 bg-black/50 rounded p-2 overflow-x-auto border border-green-500/20">
+{`lib_deps = 
     adafruit/Adafruit GFX Library@^1.11.9
     adafruit/Adafruit ST7789 Library@^1.10.4
     adafruit/Adafruit BusIO@^1.16.1
@@ -166,17 +269,11 @@ lib_deps =
     Wire
     SPI`}</pre>
             </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400">
-                ✓ После изменения запустите: <code className="font-mono">pio run -t clean</code>
-              </span>
-              <span className="text-xs px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400">
-                ✓ Или через VS Code: PlatformIO → Libraries → Install
-              </span>
-            </div>
+            <p className="text-xs text-gray-400">
+              Затем: <code className="text-green-400">pio run -t clean</code> → <code className="text-green-400">pio run -t upload</code>
+            </p>
           </div>
-        </div>
+        </details>
 
         {/* Steps */}
         <div className="space-y-6 mb-16">
