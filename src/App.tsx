@@ -6,6 +6,7 @@ import Modes from './components/Modes'
 import Architecture from './components/Architecture'
 import CodeSection from './components/CodeSection'
 import AutoMode from './components/AutoMode'
+import VibrMotor from './components/VibrMotor'
 import Setup from './components/Setup'
 import Download from './components/Download'
 import Footer from './components/Footer'
@@ -43,6 +44,7 @@ function App() {
       <Architecture />
       <CodeSection />
       <AutoMode />
+      <VibrMotor />
       <Setup />
       <Download />
       <Footer />

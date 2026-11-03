@@ -31,6 +31,15 @@ export default function Pinout() {
         { gpio: '3.3V', signal: 'VCC', desc: 'Power' },
         { gpio: 'GND', signal: 'GND', desc: 'Ground' },
       ]
+    },
+    {
+      title: 'Вибромотор',
+      color: 'orange',
+      pins: [
+        { gpio: 'GPIO2', signal: 'BASE', desc: 'Через R 1kΩ к базе NPN' },
+        { gpio: '3.3V', signal: 'MOTOR+', desc: 'Мотор → 3.3V' },
+        { gpio: 'GND', signal: 'EMIT', desc: 'Эмиттер → GND' },
+      ]
     }
   ]
 
@@ -38,6 +47,7 @@ export default function Pinout() {
     cyan: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', text: 'text-cyan-400', dot: 'bg-cyan-400' },
     purple: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400', dot: 'bg-purple-400' },
     green: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', dot: 'bg-green-400' },
+    orange: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400', dot: 'bg-orange-400' },
   }
 
   return (
@@ -107,7 +117,7 @@ export default function Pinout() {
             {[
               { pin: 0, used: 'I2C', color: 'purple' },
               { pin: 1, used: 'I2C', color: 'purple' },
-              { pin: 2, used: '—', color: 'gray' },
+              { pin: 2, used: 'VIBR', color: 'orange' },
               { pin: 3, used: 'TFT', color: 'cyan' },
               { pin: 4, used: 'IMU', color: 'purple' },
               { pin: 5, used: 'TFT', color: 'cyan' },
@@ -122,6 +132,7 @@ export default function Pinout() {
               const c = p.color === 'cyan' ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-400' :
                         p.color === 'purple' ? 'border-purple-500/50 bg-purple-500/10 text-purple-400' :
                         p.color === 'green' ? 'border-green-500/50 bg-green-500/10 text-green-400' :
+                        p.color === 'orange' ? 'border-orange-500/50 bg-orange-500/10 text-orange-400' :
                         'border-white/10 bg-white/5 text-gray-500'
               return (
                 <div key={p.pin} className={`p-3 rounded-lg border ${c} text-center`}>
@@ -143,6 +154,10 @@ export default function Pinout() {
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-500/30 border border-green-500/50" />
               <span className="text-xs text-gray-400">Кнопка</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-orange-500/30 border border-orange-500/50" />
+              <span className="text-xs text-gray-400">Вибро</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-white/10 border border-white/10" />

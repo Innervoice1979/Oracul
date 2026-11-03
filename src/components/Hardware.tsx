@@ -39,6 +39,16 @@ export default function Hardware() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
         </svg>
       )
+    },
+    {
+      name: 'Вибромотор',
+      description: 'DC моторчик с эксцентриком для тактильной обратной связи. Подключается через транзистор.',
+      specs: ['DC 3-5V', '50-150мА', 'NPN ключ (BC547)', 'GPIO2', '6 паттернов вибрации'],
+      icon: (
+        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.728-2.728" />
+        </svg>
+      )
     }
   ]
 
@@ -123,6 +133,11 @@ export default function Hardware() {
             <div className="px-6 py-4 rounded-xl bg-green-500/10 border border-green-500/30 text-center">
               <div className="text-green-400 font-bold">TTP223</div>
               <div className="text-xs text-gray-400">Capacitive Button</div>
+            </div>
+            
+            <div className="px-6 py-4 rounded-xl bg-orange-500/10 border border-orange-500/30 text-center">
+              <div className="text-orange-400 font-bold">Vibr Motor</div>
+              <div className="text-xs text-gray-400">GPIO2 + NPN</div>
             </div>
           </div>
         </div>

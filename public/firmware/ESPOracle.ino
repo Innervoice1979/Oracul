@@ -48,6 +48,10 @@
 #define BTN_PIN         20
 #define BTN_ACTIVE_HIGH true
 
+// --- Вибромотор ---
+#define VIBR_PIN        2    // GPIO2 — свободный пин
+#define VIBR_ENABLED    1    // 1 = вибромотор подключён, 0 = нет
+
 // --- Wi-Fi ---
 const char* WIFI_SSID  = "";
 const char* WIFI_PASS  = "";
@@ -355,6 +359,86 @@ void backlightSet(uint8_t val) {
 }
 
 // ============================================================================
+// ВИБРОМОТОР
+// ============================================================================
+
+void vibrInit() {
+#if VIBR_ENABLED
+  pinMode(VIBR_PIN, OUTPUT);
+  digitalWrite(VIBR_PIN, LOW);
+#endif
+}
+
+void vibrOn() {
+#if VIBR_ENABLED
+  digitalWrite(VIBR_PIN, HIGH);
+#endif
+}
+
+void vibrOff() {
+#if VIBR_ENABLED
+  digitalWrite(VIBR_PIN, LOW);
+#endif
+}
+
+// Короткий "тик" — нажатие кнопки, переключение
+void vibrTick() {
+#if VIBR_ENABLED
+  vibrOn();
+  delay(30);
+  vibrOff();
+#endif
+}
+
+// Средняя вибрация — событие (ответ оракула, поедание в змейке)
+void vibrPulse() {
+#if VIBR_ENABLED
+  vibrOn();
+  delay(80);
+  vibrOff();
+  delay(50);
+  vibrOn();
+  delay(80);
+  vibrOff();
+#endif
+}
+
+// Длинная вибрация — важное событие (Game Over, пробуждение)
+void vibrLong() {
+#if VIBR_ENABLED
+  vibrOn();
+  delay(250);
+  vibrOff();
+#endif
+}
+
+// Пульсация — "шар думает" (во время анимации)
+void vibrThinking(unsigned long durationMs) {
+#if VIBR_ENABLED
+  unsigned long start = millis();
+  while (millis() - start < durationMs) {
+    vibrOn();
+    delay(40);
+    vibrOff();
+    delay(60);
+  }
+#endif
+}
+
+// Тряска — неровная дорога, резкий манёвр
+void vibrRumble(unsigned long durationMs) {
+#if VIBR_ENABLED
+  unsigned long start = millis();
+  while (millis() - start < durationMs) {
+    vibrOn();
+    delay(15 + random(20));
+    vibrOff();
+    delay(10 + random(15));
+  }
+#endif
+}
+
+// ============================================================================
 // MPU6050
 // ============================================================================
 
@@ -585,6 +669,9 @@ void drawQuote(const String& text) {
 }
 
 void askOracle() {
+  // "Шар думает" — пульсация во время анимации
+  vibrThinking(1000);
+
   // Анимация куба
   for (int i = 0; i < 20; i++) {
     drawCubeAnimation(i);
@@ -595,6 +682,7 @@ void askOracle() {
   int idx = random(QUOTE_COUNT);
   String quote = String(quotes[idx]);
 
+  vibrPulse(); // "Ответ готов!"
   drawQuote(quote);
 
 #if ENABLE_SERIAL
@@ -748,6 +836,7 @@ void updateSnake(unsigned long now) {
 
   if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) {
     snakeAlive = false;
+    vibrLong(); // Game Over — длинная вибрация
     drawSnake();
     return;
   }
@@ -755,6 +844,7 @@ void updateSnake(unsigned long now) {
   for (int i = 1; i < snakeLen; i++) {
     if (snakeX[i] == nx && snakeY[i] == ny) {
       snakeAlive = false;
+      vibrLong(); // Game Over — длинная вибрация
       drawSnake();
       return;
     }
@@ -772,6 +862,7 @@ void updateSnake(unsigned long now) {
     snakeScore++;
     if (snakeSpeed > 70) snakeSpeed -= 3;
     snakeSpawnFood();
+    vibrPulse(); // Съели еду — двойная вибрация
   }
 
   snakeNextMove = now + snakeSpeed;
@@ -896,6 +987,7 @@ void updateReaction(unsigned long now) {
   if (reactState == ReactionState::WAIT && now >= reactGoTime) {
     reactState = ReactionState::GO;
     reactStartTime = now;
+    vibrLong(); // Длинная вибрация — пора жать!
     drawReaction();
   }
 }
@@ -1233,6 +1325,7 @@ void goToDeepSleep() {
 
 void handleButton(ButtonEvent ev) {
   markActivity();
+  vibrTick(); // Тактильный отклик на нажатие
 
   if (inGame) {
     if (ev == ButtonEvent::Short) gameShortAction();
@@ -1344,10 +1437,12 @@ void updateAutoMode(unsigned long now) {
   if (autoState.accelerating && !wasAccel) {
     autoState.accelCount++;
     autoState.eventTime = now;
+    vibrTick(); // Короткий тик при разгоне
   }
   if (autoState.braking && !wasBrake) {
     autoState.brakeCount++;
     autoState.eventTime = now;
+    vibrPulse(); // Двойная вибрация при торможении
   }
   
   // Боковое ускорение (повороты)
@@ -1366,7 +1461,13 @@ void updateAutoMode(unsigned long now) {
   
   // Вибрация/неровности (высокочастотный шум по Z)
   float zDiff = abs(a.z - autoState.azSmooth);
+  bool wasBumpy = autoState.bumpyRoad;
   autoState.bumpyRoad = (zDiff > 2000);
+  
+  // Вибромотор при неровной дороге
+  if (autoState.bumpyRoad && !wasBumpy) {
+    vibrRumble(200); // Короткая тряска при въезде на неровность
+  }
   
   // Резкий манёвр (большое суммарное ускорение)
   float totalAccel = sqrt(autoState.axSmooth * autoState.axSmooth +
@@ -1376,6 +1477,7 @@ void updateAutoMode(unsigned long now) {
   if (autoState.sharpManeuver && now - autoState.eventTime > 500) {
     autoState.sharpCount++;
     autoState.eventTime = now;
+    vibrLong(); // Длинная вибрация при резком манёвре
   }
   
   // === ОТНОСИТЕЛЬНАЯ СКОРОСТЬ ===
@@ -1642,6 +1744,7 @@ void setup() {
 
   backlightInit();
   backlightSet(DEFAULT_BRIGHTNESS);
+  vibrInit();
 
   tft.init(SCREEN_WIDTH, SCREEN_HEIGHT);
   tft.setRotation(1);
@@ -1670,6 +1773,7 @@ void setup() {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
 
   if (cause == ESP_SLEEP_WAKEUP_EXT0 || cause == ESP_SLEEP_WAKEUP_GPIO) {
+    vibrLong(); // Вибрация при пробуждении
     mode = AppMode::ORACLE;
     drawMode();
     delay(250);
@@ -1678,6 +1782,7 @@ void setup() {
     lastActivity = millis();
     askOracle();
   } else {
+    vibrTick(); // Тик при включении
     drawIntro();
     showStartup();
   }
