@@ -94,11 +94,11 @@ platform = espressif32
 board = esp32-c3-devkitm-1
 framework = arduino
 
-# Библиотеки
+# Библиотеки (правильные имена для PlatformIO)
 lib_deps = 
-    adafruit/Adafruit GFX Library@^1.11.9
-    adafruit/Adafruit ST7789 Library@^1.10.3
-    olikraus/U8g2_for_Adafruit_GFX@^1.8.0
+    adafruit/Adafruit GFX Library
+    adafruit/Adafruit ST7735 Library
+    olikraus/U8g2
 
 # Настройки serial port
 monitor_speed = 115200
